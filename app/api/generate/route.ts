@@ -1,147 +1,190 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
 
-function buildPrompt(flowerName: string): string {
-  return `You are a professional architectural floral decorator and photorealistic image editor.
+/* ----------------------------------
+   CONFIG
+---------------------------------- */
 
-TASK:
-Decorate the provided gate image using ONLY "${flowerName}" flowers.
+const ALLOWED_FLOWERS = [
+  "rose",
+  "marigold",
+  "jasmine",
+  "orchid",
+  "tulip",
+  "sunflower",
+  "lily"
+];
 
-STRICT RULES:
-- Do NOT change the gate's structure, size, color, material, or shape
-- Do NOT add people, animals, text, symbols, logos, or watermarks
-- Do NOT distort or repaint the gate
-- Flowers must look naturally attached (garlands, arches, hanging strings)
-- Decoration must be elegant, symmetrical, and realistic
-- Lighting, shadows, and perspective must remain consistent
-- Background must remain unchanged
+const MAX_RETRIES = 1;
 
-STYLE:
-- Ultra-realistic photography
-- High detail
-- Natural colors
-- Professional event decoration quality
+/* ----------------------------------
+   HELPERS
+---------------------------------- */
 
-OUTPUT:
-Return only the final decorated image.`;
+function normalizeFlowers(style: string | string[]): string[] {
+  let flowers: string[] = [];
+  
+  if (Array.isArray(style)) {
+    flowers = style;
+  } else {
+    flowers = style.split(",");
+  }
+
+  return flowers
+    .map(f => f.trim().toLowerCase())
+    .filter(f => ALLOWED_FLOWERS.includes(f));
 }
+
+function buildPrompt(flowers: string[]) {
+  return `
+    You are performing a REALISTIC, ADDITIVE IMAGE EDIT on a real photograph.
+
+    CRITICAL PRESERVATION RULES (MUST FOLLOW):
+    - Preserve the original photograph exactly
+    - Do NOT regenerate, redraw, repaint, or stylize the image
+    - Do NOT change gate structure, materials, colors, textures, or perspective
+    - Do NOT alter tiles, ground, background, trees, sky, or lighting
+    - Do NOT add depth effects, cinematic lighting, HDR, or 3D realism
+    - Maintain original shadows, contrast, and camera characteristics
+
+    EDITING SCOPE:
+    - Only add floral decorations
+    - Decorations must be physically attached to:
+      • gate pillars
+      • gate frame (top and side bars)
+    - No flowers anywhere else
+
+    DECORATION REQUIREMENTS (IMPORTANT):
+    - Use clearly visible, WELL-DEFINED, DENSE floral arrangements
+    - Flowers should be abundant, not sparse or minimal
+    - Create continuous garlands and clustered arrangements
+    - Decorations should look professionally installed (event/wedding style)
+    - Flowers must feel like real objects added onto the existing gate
+
+    STYLE & REALISM:
+    - Photographic realism is more important than artistic beauty
+    - Match the exact lighting, shadows, and color temperature of the original photo
+    - Flowers must blend naturally without altering the base image
+    - Avoid over-perfect symmetry or artificial smoothness
+
+    FLOWER TYPE:
+    Use ONLY the following flowers:
+    ${flowers.join(", ")}
+
+    FINAL CHECK BEFORE OUTPUT:
+    If any part of the image other than flowers looks changed,
+    undo that change and keep the original pixels.
+
+    OUTPUT:
+    Return the same photograph with visibly rich floral decorations added,
+    and nothing else altered.
+  `;
+}
+
+async function retry<T>(fn: () => Promise<T>, retries = MAX_RETRIES): Promise<T> {
+  let lastError;
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      console.warn(`Retry ${i + 1} failed`);
+    }
+  }
+  throw lastError;
+}
+
+async function dataUrlToFile(dataUrl: string, filename: string): Promise<File> {
+  const res = await fetch(dataUrl);
+  const blob = await res.blob();
+  return new File([blob], filename, { type: blob.type });
+}
+
+/* ----------------------------------
+   ROUTE
+---------------------------------- */
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { image, style } = body;
-
-    if (!style) {
-      return NextResponse.json(
-        { error: "Style is required" },
-        { status: 400 }
-      );
-    }
+    const { image, style, mask } = body;
 
     if (!image) {
+      return NextResponse.json({ error: "Image is required" }, { status: 400 });
+    }
+
+    if (!style) {
+      return NextResponse.json({ error: "Style is required" }, { status: 400 });
+    }
+
+    const flowers = normalizeFlowers(style);
+
+    if (flowers.length === 0) {
       return NextResponse.json(
-        { error: "Image is required" },
+        { error: `Invalid flower selection. Allowed: ${ALLOWED_FLOWERS.join(", ")}` },
         { status: 400 }
       );
     }
 
-    // Get API key from environment
-    const apiKey = process.env.GEMINI_API_KEY;
-
+    const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { error: "Gemini API key is not configured. Please add GEMINI_API_KEY to your .env.local file" },
+        { error: "OpenAI API key is not configured" },
         { status: 500 }
       );
     }
 
-    console.log("Generating image with Gemini...");
-    console.log("Style:", style);
+    const openai = new OpenAI({ apiKey });
+    const prompt = buildPrompt(flowers);
 
-    // Initialize GoogleGenAI
-    const ai = new GoogleGenAI({ apiKey });
+    console.log("Generating decorated gate with GPT-4o Image…");
 
-    // Extract base64 and mime type from data URL
-    const [mimeInfo, base64Data] = image.split(",");
-    const mimeType = mimeInfo.match(/:(.*?);/)?.[1] || "image/png";
+    const generateImage = async () => {
+      const formData = new FormData();
+      formData.append("model", "gpt-image-1.5");
+      formData.append("prompt", prompt);
+      
+      const imageFile = await dataUrlToFile(image, "gate.png");
+      formData.append("image[]", imageFile); // data URL
 
-    const prompt = buildPrompt(style);
+      // Optional mask for precise decoration area
+      if (mask) {
+        formData.append("mask", mask); // PNG with transparent areas
+      }
 
-    // Generate content with image input
-    const response = await ai.models.generateContent({
-      model: "gemini-1.5-pro",
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { text: prompt },
-            {
-              inlineData: {
-                mimeType: mimeType,
-                data: base64Data,
-              },
-            },
-          ],
+      const response = await fetch("https://api.openai.com/v1/images/edits", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`
         },
-      ],
-    });
+        body: formData
+      });
 
-    // Extract the generated image
-    if (!response?.candidates || response.candidates.length === 0) {
-      throw new Error("No candidates returned from Gemini");
-    }
-
-    let imageData = null;
-    const firstCandidate = response.candidates[0];
-    
-    if (firstCandidate?.content?.parts) {
-      for (const part of firstCandidate.content.parts) {
-        if (part.inlineData) {
-          imageData = part.inlineData.data;
-          break;
-        }
+      if (!response.ok) {
+        throw new Error(await response.text());
       }
+
+      return response.json();
+    };
+    console.log("IMAGE GENERATION STARTED ", new Date().toISOString());
+    const result = await retry(generateImage);
+    console.log("IMAGE GENERATION ENDED ", new Date().toISOString());
+    const imageInfo = result?.data?.[0];
+    const imageUrl = imageInfo?.url;
+    const b64Json = imageInfo?.b64_json;
+
+    if (!imageUrl && !b64Json) {
+      throw new Error("No image returned from GPT-4o");
     }
 
-    if (!imageData) {
-      // If no image data but we have text, maybe it's an error or description
-      const textResponse = firstCandidate?.content?.parts?.[0]?.text;
-      if (textResponse) {
-        throw new Error(`AI returned text instead of an image: ${textResponse}`);
-      }
-      throw new Error("No image data returned from Gemini");
-    }
+    console.log("Image generated successfully");
 
-    // Convert to data URL for frontend display
-    const imageUrl = `data:image/png;base64,${imageData}`;
+    const dataUrl = b64Json ? `data:image/png;base64,${b64Json}` : imageUrl;
 
-    console.log("Image generated successfully!");
+    return NextResponse.json({ imageUrl: dataUrl, success: true });
 
-    return NextResponse.json({
-      imageUrl: imageUrl,
-      success: true,
-    });
   } catch (error: any) {
     console.error("Error generating image:", error);
-
-    // Handle specific errors
-    if (error?.message?.includes("API key")) {
-      return NextResponse.json(
-        { error: "Invalid Gemini API key" },
-        { status: 401 }
-      );
-    }
-
-    if (
-      error?.message?.includes("429") ||
-      error?.message?.includes("quota") ||
-      error?.message?.includes("rate limit")
-    ) {
-      return NextResponse.json(
-        { error: "Rate limit exceeded. Please try again later." },
-        { status: 429 }
-      );
-    }
 
     return NextResponse.json(
       { error: error?.message || "Failed to generate image" },

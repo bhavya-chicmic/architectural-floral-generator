@@ -1,24 +1,38 @@
 "use client";
 
-import { useState, useRef, DragEvent, ChangeEvent } from "react";
+import { useState, useRef, DragEvent, ChangeEvent, useEffect } from "react";
 import Image from "next/image";
 
-type FlowerType = "lily" | "rose" | "custom";
+const FLOWER_OPTIONS = [
+  "rose",
+  "marigold",
+  "jasmine",
+  "orchid",
+  "tulip",
+  "sunflower",
+  "lily",
+];
 
 export default function GeneratePage() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [selectedTab, setSelectedTab] = useState<FlowerType>("lily");
-  const [customText, setCustomText] = useState("");
+  const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   // State to store previous parameters for regenerate
   const [lastParams, setLastParams] = useState<{
     image: string;
-    style: string;
+    style: string[];
   } | null>(null);
+
+  useEffect(() => {
+    if (generatedImage && resultsRef.current) {
+      resultsRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [generatedImage]);
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -55,11 +69,12 @@ export default function GeneratePage() {
     reader.readAsDataURL(file);
   };
 
-  const getStyleText = (): string => {
-    if (selectedTab === "custom") {
-      return customText || "custom decoration";
-    }
-    return selectedTab;
+  const toggleStyle = (style: string) => {
+    setSelectedStyles((prev) =>
+      prev.includes(style)
+        ? prev.filter((s) => s !== style)
+        : [...prev, style]
+    );
   };
 
   const handleGenerate = async () => {
@@ -68,10 +83,9 @@ export default function GeneratePage() {
     setIsGenerating(true);
     setGeneratedImage(null);
 
-    const style = getStyleText();
     const params = {
       image: selectedImage,
-      style: style,
+      style: selectedStyles,
     };
 
     // Store params for regenerate
@@ -91,7 +105,15 @@ export default function GeneratePage() {
       }
 
       const data = await response.json();
-      setGeneratedImage(data.imageUrl);
+
+      const finalImageUrl = data.imageUrl ||
+        (data.b64_json ? `data:image/png;base64,${data.b64_json}` : null);
+
+      if (!finalImageUrl) {
+        throw new Error("No image data received");
+      }
+
+      setGeneratedImage(finalImageUrl);
     } catch (error) {
       console.error("Error generating image:", error);
       alert("Failed to generate image. Please try again.");
@@ -120,7 +142,15 @@ export default function GeneratePage() {
       }
 
       const data = await response.json();
-      setGeneratedImage(data.imageUrl);
+
+      const finalImageUrl = data.imageUrl ||
+        (data.b64_json ? `data:image/png;base64,${data.b64_json}` : null);
+
+      if (!finalImageUrl) {
+        throw new Error("No image data received");
+      }
+
+      setGeneratedImage(finalImageUrl);
     } catch (error) {
       console.error("Error regenerating image:", error);
       alert("Failed to regenerate image. Please try again.");
@@ -145,11 +175,14 @@ export default function GeneratePage() {
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 text-transparent bg-clip-text mb-4">
-            Architectural Floral Decorator
+          <h1
+            className="text-6xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 text-transparent bg-clip-text mb-4"
+            style={{ lineHeight: 1.2 }}
+          >
+            Transform Any Space with Floral Design
           </h1>
           <p className="text-gray-600 text-lg">
-            Professional photorealistic decoration for your architectural designs
+            See how flowers can elevate your space—instantly
           </p>
         </div>
 
@@ -165,11 +198,10 @@ export default function GeneratePage() {
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-xl p-8 transition-all duration-300 cursor-pointer ${
-                isDragging
-                  ? "border-indigo-400 bg-indigo-50 scale-[1.02]"
-                  : "border-slate-200 hover:border-indigo-300 hover:bg-slate-50"
-              }`}
+              className={`border-2 border-dashed rounded-xl p-8 transition-all duration-300 cursor-pointer ${isDragging
+                ? "border-indigo-400 bg-indigo-50 scale-[1.02]"
+                : "border-slate-200 hover:border-indigo-300 hover:bg-slate-50"
+                }`}
             >
               <input
                 ref={fileInputRef}
@@ -222,55 +254,31 @@ export default function GeneratePage() {
             <h2 className="text-xl font-semibold text-gray-900 mb-4">
               2. Choose Decoration Style
             </h2>
-            <div className="flex gap-2 mb-4">
-              <button
-                onClick={() => setSelectedTab("lily")}
-                className={`flex-1 py-3 px-6 rounded-lg font-medium transition-all duration-300 border ${
-                  selectedTab === "lily"
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-4">
+              {FLOWER_OPTIONS.map((flower) => (
+                <button
+                  key={flower}
+                  onClick={() => toggleStyle(flower)}
+                  className={`py-3 px-4 rounded-lg font-medium transition-all duration-300 border capitalizing ${selectedStyles.includes(flower)
                     ? "bg-indigo-50 text-indigo-600 border-indigo-200 shadow-sm"
                     : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                Lily
-              </button>
-              <button
-                onClick={() => setSelectedTab("rose")}
-                className={`flex-1 py-3 px-6 rounded-lg font-medium transition-all duration-300 border ${
-                  selectedTab === "rose"
-                    ? "bg-indigo-50 text-indigo-600 border-indigo-200 shadow-sm"
-                    : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                Rose
-              </button>
-              <button
-                onClick={() => setSelectedTab("custom")}
-                className={`flex-1 py-3 px-6 rounded-lg font-medium transition-all duration-300 border ${
-                  selectedTab === "custom"
-                    ? "bg-indigo-50 text-indigo-600 border-indigo-200 shadow-sm"
-                    : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                Custom
-              </button>
+                    }`}
+                >
+                  {flower.charAt(0).toUpperCase() + flower.slice(1)}
+                </button>
+              ))}
             </div>
-
-            {/* Custom Text Input */}
-            {selectedTab === "custom" && (
-              <input
-                type="text"
-                value={customText}
-                onChange={(e) => setCustomText(e.target.value)}
-                placeholder="Enter your custom decoration style..."
-                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all"
-              />
+            {selectedStyles.length === 0 && (
+              <p className="text-sm text-amber-600 mt-2">
+                Please select at least one style.
+              </p>
             )}
           </div>
 
           {/* Generate Button */}
           <button
             onClick={handleGenerate}
-            disabled={!selectedImage || isGenerating}
+            disabled={!selectedImage || isGenerating || selectedStyles.length === 0}
             className="w-full py-4 bg-gradient-to-r from-indigo-400 to-purple-400 text-white font-semibold rounded-lg shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-lg"
           >
             {isGenerating ? (
@@ -305,16 +313,19 @@ export default function GeneratePage() {
 
         {/* Generated Image Section */}
         {generatedImage && (
-          <div className="mt-8 bg-white/80 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-slate-200/50 animate-fade-in">
+          <div
+            ref={resultsRef}
+            className="mt-8 bg-white/80 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-slate-200/50 animate-fade-in"
+          >
             <h2 className="text-xl font-semibold text-gray-900 mb-4">
               Generated Image
             </h2>
-            <div className="relative w-full h-96 mb-6 rounded-xl overflow-hidden shadow-2xl">
-              <Image
+            <div className="relative w-full h-[600px] mb-6 rounded-xl overflow-hidden shadow-2xl">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src={generatedImage}
                 alt="Generated"
-                fill
-                className="object-contain"
+                className="w-full h-full object-contain"
               />
             </div>
 
