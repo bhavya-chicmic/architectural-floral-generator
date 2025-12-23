@@ -42,37 +42,37 @@ function buildPrompt(flowers: string[]) {
     CRITICAL PRESERVATION RULES (MUST FOLLOW):
     - Preserve the original photograph exactly
     - Do NOT regenerate, redraw, repaint, or stylize the image
-    - Do NOT change gate structure, materials, colors, textures, or perspective
-    - Do NOT alter tiles, ground, background, trees, sky, or lighting
+    - Do NOT change the structure, geometry, materials, colors, textures, or perspective of any objects
+    - Do NOT alter floors, walls, ceilings, ground, background, sky, lighting, or environment
     - Do NOT add depth effects, cinematic lighting, HDR, or 3D realism
     - Maintain original shadows, contrast, and camera characteristics
 
     EDITING SCOPE:
-    - Only add floral decorations
-    - Decorations must be physically attached to:
-      • gate pillars
-      • gate frame (top and side bars)
-    - No flowers anywhere else
+    - Only add decorative floral elements
+    - Decorations must be physically attached to existing architectural or structural surfaces
+      (such as pillars, frames, arches, railings, doorways, entrances, walls, or similar surfaces present in the image)
+    - Do NOT add flowers floating in space or placed on the ground unless clearly attached
+    - No decorations on people, vehicles, animals, or unrelated objects
 
     DECORATION REQUIREMENTS (IMPORTANT):
-    - Use clearly visible, WELL-DEFINED, DENSE floral arrangements
-    - Flowers should be abundant, not sparse or minimal
-    - Create continuous garlands and clustered arrangements
-    - Decorations should look professionally installed (event/wedding style)
-    - Flowers must feel like real objects added onto the existing gate
+    - Use clearly visible, WELL-DEFINED, moderately-to-dense floral arrangements
+    - Flowers should be abundant enough to be noticeable, but not excessive
+    - Create continuous garlands, vertical arrangements, or clustered accents where appropriate
+    - Decorations should look professionally installed (event / ceremonial style)
+    - Flowers must feel like real physical objects added onto the existing scene
 
     STYLE & REALISM:
     - Photographic realism is more important than artistic beauty
     - Match the exact lighting, shadows, and color temperature of the original photo
-    - Flowers must blend naturally without altering the base image
+    - Decorations must blend naturally without altering the base image
     - Avoid over-perfect symmetry or artificial smoothness
 
     FLOWER TYPE:
     Use ONLY the following flowers:
-    ${flowers.join(", ")}
+    marigold, sunflower, lilly 
 
     FINAL CHECK BEFORE OUTPUT:
-    If any part of the image other than flowers looks changed,
+    If any part of the image other than the added floral decorations looks changed,
     undo that change and keep the original pixels.
 
     OUTPUT:
