@@ -1,194 +1,99 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 /* ----------------------------------
    CONFIG
 ---------------------------------- */
-
-const ALLOWED_FLOWERS = [
-  "rose",
-  "marigold",
-  "jasmine",
-  "orchid",
-  "tulip",
-  "sunflower",
-  "lily"
-];
-
-const MAX_RETRIES = 1;
+const ALLOWED_FLOWERS = ["rose", "marigold", "jasmine", "orchid", "tulip", "sunflower", "lily"];
 
 /* ----------------------------------
    HELPERS
 ---------------------------------- */
-
 function normalizeFlowers(style: string | string[]): string[] {
-  let flowers: string[] = [];
-  
-  if (Array.isArray(style)) {
-    flowers = style;
-  } else {
-    flowers = style.split(",");
-  }
-
+  const flowers = Array.isArray(style) ? style : style.split(",");
   return flowers
     .map(f => f.trim().toLowerCase())
     .filter(f => ALLOWED_FLOWERS.includes(f));
 }
 
+// Convert Data URL to a format Gemini understands
+function dataUrlToGenerativePart(dataUrl: string) {
+  const base64Data = dataUrl.split(",")[1];
+  const mimeType = dataUrl.split(",")[0].split(":")[1].split(";")[0];
+  return {
+    inlineData: {
+      data: base64Data,
+      mimeType
+    },
+  };
+}
+
 function buildPrompt(flowers: string[]) {
   return `
-    You are performing a REALISTIC, ADDITIVE IMAGE EDIT on a real photograph.
+    IMAGE EDITING TASK:
+    You are an expert floral decorator. I am providing an image and you must add flowers to it.
 
-    CRITICAL PRESERVATION RULES (MUST FOLLOW):
-    - Preserve the original photograph exactly
-    - Do NOT regenerate, redraw, repaint, or stylize the image
-    - Do NOT change the structure, geometry, materials, colors, textures, or perspective of any objects
-    - Do NOT alter floors, walls, ceilings, ground, background, sky, lighting, or environment
-    - Do NOT add depth effects, cinematic lighting, HDR, or 3D realism
-    - Maintain original shadows, contrast, and camera characteristics
+    REQUIRED FLOWERS: ${flowers.join(", ")}
 
-    EDITING SCOPE:
-    - Only add decorative floral elements
-    - Decorations must be physically attached to existing architectural or structural surfaces
-      (such as pillars, frames, arches, railings, doorways, entrances, walls, or similar surfaces present in the image)
-    - Do NOT add flowers floating in space or placed on the ground unless clearly attached
-    - No decorations on people, vehicles, animals, or unrelated objects
+    CRITICAL RULES:
+    1. PRESERVE THE ORIGINAL: Keep the background, structure, lighting, and people exactly as they are.
+    2. ADDITIVE ONLY: Add floral garlands and clusters to architectural elements (pillars, gates, or frames).
+    3. REALISM: The flowers must match the lighting and shadows of the original photo.
+    4. PLACEMENT: Attach flowers to surfaces. Do not let them float.
 
-    DECORATION REQUIREMENTS (IMPORTANT):
-    - Use clearly visible, WELL-DEFINED, moderately-to-dense floral arrangements
-    - Flowers should be abundant enough to be noticeable, but not excessive
-    - Create continuous garlands, vertical arrangements, or clustered accents where appropriate
-    - Decorations should look professionally installed (event / ceremonial style)
-    - Flowers must feel like real physical objects added onto the existing scene
-
-    STYLE & REALISM:
-    - Photographic realism is more important than artistic beauty
-    - Match the exact lighting, shadows, and color temperature of the original photo
-    - Decorations must blend naturally without altering the base image
-    - Avoid over-perfect symmetry or artificial smoothness
-
-    FLOWER TYPE:
-    Use ONLY the following flowers:
-    marigold, sunflower, lilly 
-
-    FINAL CHECK BEFORE OUTPUT:
-    If any part of the image other than the added floral decorations looks changed,
-    undo that change and keep the original pixels.
-
-    OUTPUT:
-    Return the same photograph with visibly rich floral decorations added,
-    and nothing else altered.
+    OUTPUT: Return the modified image with the decorations included.
   `;
-}
-
-async function retry<T>(fn: () => Promise<T>, retries = MAX_RETRIES): Promise<T> {
-  let lastError;
-  for (let i = 0; i < retries; i++) {
-    try {
-      return await fn();
-    } catch (err) {
-      lastError = err;
-      console.warn(`Retry ${i + 1} failed`);
-    }
-  }
-  throw lastError;
-}
-
-async function dataUrlToFile(dataUrl: string, filename: string): Promise<File> {
-  const res = await fetch(dataUrl);
-  const blob = await res.blob();
-  return new File([blob], filename, { type: blob.type });
 }
 
 /* ----------------------------------
    ROUTE
 ---------------------------------- */
-
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { image, style, mask } = body;
+    const { image, style } = await request.json();
 
-    if (!image) {
-      return NextResponse.json({ error: "Image is required" }, { status: 400 });
-    }
-
-    if (!style) {
-      return NextResponse.json({ error: "Style is required" }, { status: 400 });
+    if (!image || !style) {
+      return NextResponse.json({ error: "Image and style are required" }, { status: 400 });
     }
 
     const flowers = normalizeFlowers(style);
+    const apiKey = process.env.GEMINI_API_KEY;
+    const genAI = new GoogleGenerativeAI(apiKey!);
+    
+    // Use gemini-2.0-flash-exp or gemini-1.5-pro
+    const model = genAI.getGenerativeModel({ 
+    model: "gemini-2.5-flash-image" 
+    });
+    
+    const promptText = buildPrompt(flowers);
+    const imagePart = dataUrlToGenerativePart(image);
 
-    if (flowers.length === 0) {
-      return NextResponse.json(
-        { error: `Invalid flower selection. Allowed: ${ALLOWED_FLOWERS.join(", ")}` },
-        { status: 400 }
-      );
-    }
+    console.log("Gemini Generation Started...");
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "OpenAI API key is not configured" },
-        { status: 500 }
-      );
-    }
-
-    const openai = new OpenAI({ apiKey });
-    const prompt = buildPrompt(flowers);
-
-    console.log("Generating decorated gate with GPT-4o Image…");
-
-    const generateImage = async () => {
-      const formData = new FormData();
-      formData.append("model", "gpt-image-1.5");
-      formData.append("prompt", prompt);
-      
-      const imageFile = await dataUrlToFile(image, "gate.png");
-      formData.append("image[]", imageFile); // data URL
-
-      // Optional mask for precise decoration area
-      if (mask) {
-        formData.append("mask", mask); // PNG with transparent areas
+    // CRITICAL: We must pass the config with responseModalities
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [imagePart, { text: promptText }] }],
+      generationConfig: {
+        // @ts-ignore - The SDK types might not show this field yet in some versions
+        responseModalities: ["IMAGE"],
       }
+    });
 
-      const response = await fetch("https://api.openai.com/v1/images/edits", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`
-        },
-        body: formData
-      });
+    const response = await result.response;
+    
+    // The response will contain the edited image in the inlineData part
+    const outputPart = response.candidates?.[0].content.parts.find(p => p.inlineData);
 
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
-
-      return response.json();
-    };
-    console.log("IMAGE GENERATION STARTED ", new Date().toISOString());
-    const result = await retry(generateImage);
-    console.log("IMAGE GENERATION ENDED ", new Date().toISOString());
-    const imageInfo = result?.data?.[0];
-    const imageUrl = imageInfo?.url;
-    const b64Json = imageInfo?.b64_json;
-
-    if (!imageUrl && !b64Json) {
-      throw new Error("No image returned from GPT-4o");
+    if (!outputPart || !outputPart.inlineData) {
+      throw new Error("The model returned text but failed to generate the image data.");
     }
 
-    console.log("Image generated successfully");
+    const base64Image = `data:${outputPart.inlineData.mimeType};base64,${outputPart.inlineData.data}`;
 
-    const dataUrl = b64Json ? `data:image/png;base64,${b64Json}` : imageUrl;
-
-    return NextResponse.json({ imageUrl: dataUrl, success: true });
+    return NextResponse.json({ imageUrl: base64Image, success: true });
 
   } catch (error: any) {
-    console.error("Error generating image:", error);
-
-    return NextResponse.json(
-      { error: error?.message || "Failed to generate image" },
-      { status: 500 }
-    );
+    console.error("Gemini Error:", error);
+    return NextResponse.json({ error: error?.message || "Generation failed" }, { status: 500 });
   }
 }
