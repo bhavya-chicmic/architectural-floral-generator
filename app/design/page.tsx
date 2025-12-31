@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import BouquetTypePicker from "./components/BouquetTypePicker";
 import FlowerPicker from "./components/FlowerPicker";
@@ -28,7 +28,7 @@ export interface DesignState {
     };
 }
 
-export default function DesignPage() {
+function DesignContent() {
     const searchParams = useSearchParams();
     const [mode, setMode] = useState<"manual" | "ai">("manual");
     const [hasAiSuggestions, setHasAiSuggestions] = useState(false);
@@ -183,5 +183,13 @@ export default function DesignPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function DesignPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+            <DesignContent />
+        </Suspense>
     );
 }
