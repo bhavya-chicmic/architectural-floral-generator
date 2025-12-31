@@ -27,17 +27,27 @@ export default function FlowerPicker({ value = [], quantity, onChangeFlowers, on
 
     const toggleFlower = (flower: string) => {
         if (value.includes(flower)) {
-            onChangeFlowers(value.filter(f => f !== flower));
+            onChangeFlowers([]);
         } else {
-            onChangeFlowers([...value, flower]);
+            onChangeFlowers([flower]);
         }
     };
 
     return (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 animate-fade-in-up">
-            <h2 className="font-serif text-2xl font-medium mb-2 text-stone-800 flex items-center gap-2">
-                <span>🌷</span> Choose Your Flowers
-            </h2>
+            <div className="flex items-center justify-between mb-2">
+                <h2 className="font-serif text-2xl font-medium text-stone-800 flex items-center gap-2">
+                    <span>🌷</span> Choose Your Flower
+                </h2>
+                {value.length > 0 && (
+                    <button
+                        onClick={() => onChangeFlowers([])}
+                        className="text-xs text-rose-500 hover:text-rose-700 underline font-medium"
+                    >
+                        Clear Selection
+                    </button>
+                )}
+            </div>
             <p className="text-stone-500 mb-6 text-sm">Step 2 of 5</p>
 
             {/* Quantity Selector */}
@@ -112,7 +122,7 @@ export default function FlowerPicker({ value = [], quantity, onChangeFlowers, on
             </div>
 
             <p className="text-xs text-stone-400 mt-4 text-center">
-                Select multiple flowers freely. Live preview updates. 🔄
+                Select your preferred flower. Live preview updates. 🔄
             </p>
         </div>
     );

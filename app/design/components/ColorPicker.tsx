@@ -40,17 +40,26 @@ export default function ColorPicker({ value = [], onChange }: ColorPickerProps) 
         if (value.includes(color)) {
             onChange(value.filter(c => c !== color));
         } else {
-            // Remove full theme name if it was there
-            const cleanValues = value.filter(v => !THEMES.some(t => t.id === v));
-            onChange([...cleanValues, color]);
+            // Logic for single select strictly now
+            onChange([color]);
         }
     };
 
     return (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 animate-fade-in-up">
-            <h2 className="font-serif text-2xl font-medium mb-2 text-stone-800 flex items-center gap-2">
-                <span>🎨</span> Select Color Theme
-            </h2>
+            <div className="flex items-center justify-between mb-2">
+                <h2 className="font-serif text-2xl font-medium text-stone-800 flex items-center gap-2">
+                    <span>🎨</span> Select Color Theme
+                </h2>
+                {value.length > 0 && (
+                    <button
+                        onClick={() => onChange([])}
+                        className="text-xs text-rose-500 hover:text-rose-700 underline font-medium"
+                    >
+                        Clear Selection
+                    </button>
+                )}
+            </div>
             <p className="text-stone-500 mb-6 text-sm">Step 3 of 5</p>
 
             <div className="flex gap-4 border-b border-stone-100 mb-6">
