@@ -3,10 +3,21 @@ import { useState } from "react";
 
 interface PreviewProps {
     design: {
+        bouquetType: string;
         flowers: string[];
+        quantity: string;
         colors: string[];
         wrap: string;
+        ribbonType: string;
+        ribbonColor: string;
         imageUrl: string;
+        addons: {
+            cardMessage: string;
+            hasChocolates: boolean;
+            hasBalloons: boolean;
+            hasVase: boolean;
+            floristNote: string;
+        };
     };
 }
 
@@ -21,9 +32,13 @@ export default function Preview({ design }: PreviewProps) {
             const res = await fetch("/api/generate-image", {
                 method: "POST",
                 body: JSON.stringify({
+                    bouquetType: design.bouquetType,
                     flowers: design.flowers,
+                    quantity: design.quantity,
                     colors: design.colors,
                     wrap: design.wrap || "No wrapping",
+                    ribbonType: design.ribbonType,
+                    ribbonColor: design.ribbonColor,
                 }),
             });
 
@@ -68,10 +83,17 @@ export default function Preview({ design }: PreviewProps) {
 
             <div className="mt-6 space-y-4">
                 {hasSelections ? (
-                    <div className="text-sm text-stone-600 bg-stone-50 p-3 rounded-lg border border-stone-100">
-                        <p><strong>Flowers:</strong> {design.flowers.join(", ")}</p>
-                        {design.colors.length > 0 && <p><strong>Colors:</strong> {design.colors.join(", ")}</p>}
-                        {design.wrap && <p><strong>Wrap:</strong> {design.wrap}</p>}
+                    <div className="text-sm text-stone-600 bg-stone-50 p-3 rounded-lg border border-stone-100 space-y-1">
+                        <p><strong className="text-stone-800">Style:</strong> {design.bouquetType} ({design.quantity})</p>
+                        <p><strong className="text-stone-800">Flowers:</strong> {design.flowers.join(", ")}</p>
+                        {design.colors.length > 0 && <p><strong className="text-stone-800">Colors:</strong> {design.colors.join(", ")}</p>}
+                        {design.wrap && <p><strong className="text-stone-800">Wrap:</strong> {design.wrap} w/ {design.ribbonColor} {design.ribbonType}</p>}
+                        {(design.addons.hasChocolates || design.addons.hasBalloons) && (
+                            <p><strong className="text-stone-800">Add-ons:</strong> {[
+                                design.addons.hasChocolates && "Chocolates",
+                                design.addons.hasBalloons && "Balloons"
+                            ].filter(Boolean).join(", ")}</p>
+                        )}
                     </div>
                 ) : (
                     <div className="text-sm text-stone-400 italic text-center p-2">

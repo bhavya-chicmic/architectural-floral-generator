@@ -6,14 +6,12 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 ---------------------------------- */
 
 const ALLOWED_FLOWERS = [
-  "rose",
-  "tulip",
-  "lily",
-  "orchid",
-  "sunflower",
-  "marigold",
-  "peony",
-  "jasmine"
+  "Red Rose", "White Rose", "Pink Rose", "Garden Rose",
+  "White Lily", "Pink Lily", "Oriental Lily",
+  "Red Tulip", "Yellow Tulip", "Pink Tulip",
+  "White Orchid", "Purple Orchid",
+  "Pink Peony", "White Peony", "Coral Peony",
+  "Sunflowers", "Daisies", "Hydrangeas", "Carnations"
 ];
 
 /* ----------------------------------
@@ -23,18 +21,26 @@ const ALLOWED_FLOWERS = [
 function normalizeFlowers(input: string | string[]) {
   const list = Array.isArray(input) ? input : input.split(",");
   return list
-    .map(f => f.trim().toLowerCase())
+    .map(f => f.trim())
     .filter(f => ALLOWED_FLOWERS.includes(f));
 }
 
 function buildPrompt({
+  bouquetType,
   flowers,
+  quantity,
   colors,
   wrap,
+  ribbonType,
+  ribbonColor,
 }: {
+  bouquetType: string;
   flowers: string[];
+  quantity: string;
   colors: string[];
   wrap: string;
+  ribbonType: string;
+  ribbonColor: string;
 }) {
   return `
 You are a professional floral designer and photographer.
@@ -43,9 +49,11 @@ TASK:
 Generate a hyper-realistic bouquet product image.
 
 BOUQUET DETAILS:
+• Style: ${bouquetType} (${quantity} volume)
 • Flowers: ${flowers.join(", ")}
 • Color theme: ${colors.join(", ")}
-• Wrapping style: ${wrap}
+• Wrapping: ${wrap}
+• Ribbon: ${ribbonColor} ${ribbonType} ribbon
 
 VISUAL REQUIREMENTS:
 - Studio lighting
@@ -66,10 +74,6 @@ Return a single realistic bouquet image.
 `;
 }
 
-/* ----------------------------------
-   ROUTE HANDLER
----------------------------------- */
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -87,13 +91,18 @@ export async function POST(req: NextRequest) {
         You are a professional floral designer.
         Analyze this image and suggest a bouquet design based on it.
         
-        The flowers MUST be chosen from this allowed list: ${ALLOWED_FLOWERS.join(", ")}.
+        The flowers MUST be chosen from this EXAACT allowed list: ${ALLOWED_FLOWERS.join(", ")}.
+        Do NOT suggest generic names like "rose". You MUST choose specific types like "Red Rose" or "Pink Rose".
         
         Return ONLY a JSON object with the following structure:
         {
-          "flowers": ["flower1", "flower2"],
-          "colors": ["color1", "color2"],
-          "wrap": "suggested wrapping style"
+          "bouquetType": "Hand-tied" | "Round" | "Cascading" | "Box" | "Basket" | "Vase",
+          "flowers": ["exact_flower_name_from_list"],
+          "quantity": "Minimal" | "Standard" | "Luxe",
+          "colors": ["Classic Red", "Pastel", "White & Green", "Bright & Vibrant", "Custom"],
+          "wrap": "Kraft Paper" | "Premium Matte" | "Transparent" | "Fabric" | "Luxury Box",
+          "ribbonType": "Satin" | "Jute" | "Silk",
+          "ribbonColor": "string (e.g. Red, Gold)"
         }
       `;
 
@@ -129,7 +138,15 @@ export async function POST(req: NextRequest) {
     // ---------------------------------------------------------
     // OPTION B: Standard Generation (Existing Logic)
     // ---------------------------------------------------------
-    const { flowers, colors, wrap } = body;
+    const { 
+      flowers, 
+      colors, 
+      wrap,
+      bouquetType = "Hand-tied",
+      quantity = "Standard",
+      ribbonType = "Satin",
+      ribbonColor = "matching" 
+    } = body;
 
     if (!flowers || !colors || !wrap) {
       return NextResponse.json(
@@ -142,15 +159,19 @@ export async function POST(req: NextRequest) {
 
     const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
 
-    // Use Imagen 3 for image generation
+    // Use validated available model (gemini-2.0-flash-exp supports multimodal generation)
     const model = genAI.getGenerativeModel({
-      model: "imagen-3.0-generate-001",
+      model: "gemini-2.5-flash-image",
     });
 
     const prompt = buildPrompt({
+      bouquetType,
       flowers: normalizedFlowers,
+      quantity,
       colors,
       wrap,
+      ribbonType,
+      ribbonColor,
     });
 
     const result = await model.generateContent({
@@ -160,19 +181,27 @@ export async function POST(req: NextRequest) {
           parts: [{ text: prompt }],
         },
       ],
-      // Imagen specific config might be needed, but 'responseModalities' is often inferred or not needed for Imagen model
-      // keeping basic structure or adapting as needed
+      generationConfig: {
+        responseModalities: ["IMAGE"],
+      } as any,
     });
 
-    const imagePart = result.response.candidates?.[0]?.content?.parts?.find(
-      (p: any) => p.inlineData
-    );
+    let imageBase64 = "";
 
-    if (!imagePart?.inlineData) {
-      throw new Error("No image returned from Gemini");
+    // Parse response as requested
+    const candidates = result.response.candidates;
+    if (candidates && candidates[0].content && candidates[0].content.parts) {
+        for (const part of candidates[0].content.parts) {
+            if (part.inlineData) {
+                imageBase64 = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                break;
+            }
+        }
     }
 
-    const imageBase64 = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
+    if (!imageBase64) {
+      throw new Error("No image returned from Gemini");
+    }
 
     return NextResponse.json({
       success: true,

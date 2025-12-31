@@ -2,23 +2,37 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import BouquetTypePicker from "./components/BouquetTypePicker";
 import FlowerPicker from "./components/FlowerPicker";
 import ColorPicker from "./components/ColorPicker";
 import WrapPicker from "./components/WrapPicker";
+import AddonsPicker from "./components/AddonsPicker";
 import Preview from "./components/Preview";
 import ImageUploader from "./components/ImageUploader";
 
 export interface DesignState {
+    bouquetType: string;
     flowers: string[];
+    quantity: "Minimal" | "Standard" | "Luxe";
     colors: string[];
     wrap: string;
+    ribbonType: string;
+    ribbonColor: string;
     imageUrl: string;
+    addons: {
+        cardMessage: string;
+        hasChocolates: boolean;
+        hasBalloons: boolean;
+        hasVase: boolean;
+        floristNote: string;
+    };
 }
 
 export default function DesignPage() {
     const searchParams = useSearchParams();
     const [mode, setMode] = useState<"manual" | "ai">("manual");
     const [hasAiSuggestions, setHasAiSuggestions] = useState(false);
+    const [uploadedImage, setUploadedImage] = useState<string | null>(null);
 
     useEffect(() => {
         if (searchParams.get("mode") === "ai") {
@@ -28,34 +42,36 @@ export default function DesignPage() {
     }, [searchParams]);
 
     const [design, setDesign] = useState<DesignState>({
+        bouquetType: "Hand-tied",
         flowers: [],
+        quantity: "Standard",
         colors: [],
         wrap: "",
+        ribbonType: "Satin",
+        ribbonColor: "Pink",
         imageUrl: "",
+        addons: {
+            cardMessage: "",
+            hasChocolates: false,
+            hasBalloons: false,
+            hasVase: false,
+            floristNote: ""
+        }
     });
 
-    const handleSuggestions = (suggestions: { flowers: string[], colors: string[], wrap: string }) => {
-        // Map AI backend names (singular lowercase) to Frontend Picker names (Plural Title Case)
-        const flowerMap: Record<string, string> = {
-            "rose": "Roses",
-            "tulip": "Tulips",
-            "lily": "Lilies",
-            "peony": "Peonies",
-            "orchid": "Orchids",
-            "sunflower": "Sunflowers",
-            "marigold": "Marigolds",
-            "jasmine": "Jasmine"
-        };
-
-        const mappedFlowers = (suggestions.flowers || []).map(f => flowerMap[f.toLowerCase()] || f);
-
+    const handleSuggestions = (suggestions: any, imagePreview: string) => {
         setDesign(prev => ({
             ...prev,
-            flowers: mappedFlowers,
+            bouquetType: suggestions.bouquetType || "Hand-tied",
+            flowers: suggestions.flowers || [],
+            quantity: suggestions.quantity || "Standard",
             colors: suggestions.colors || [],
-            wrap: suggestions.wrap || "",
+            wrap: suggestions.wrap || "Kraft Paper",
+            ribbonType: suggestions.ribbonType || "Satin",
+            ribbonColor: suggestions.ribbonColor || "Pink",
         }));
 
+        setUploadedImage(imagePreview);
         setHasAiSuggestions(true);
     };
 
@@ -63,12 +79,13 @@ export default function DesignPage() {
         setMode(newMode);
         if (newMode === "manual") {
             setHasAiSuggestions(false);
+            setUploadedImage(null);
         }
     };
 
     return (
-        <div className="min-h-screen bg-[#FDFBF7] p-8 md:p-12">
-            <div className="max-w-6xl mx-auto">
+        <div className="min-h-screen bg-[#FDFBF7] p-4 md:p-8">
+            <div className="w-full max-w-[1920px] mx-auto">
                 <header className="mb-8 text-center">
                     <h1 className="text-4xl md:text-5xl font-serif text-stone-800 mb-4">
                         Bouquet Builder
@@ -100,36 +117,61 @@ export default function DesignPage() {
                         ) : (
                             <>
                                 {mode === "ai" && hasAiSuggestions && (
-                                    <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl flex items-center justify-between animate-fade-in mb-6">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center text-lg">
-                                                ✨
+                                    <div className="bg-white border border-rose-100 p-6 rounded-2xl shadow-sm animate-fade-in mb-6 flex flex-col md:flex-row gap-6">
+                                        {uploadedImage && (
+                                            <div className="w-full md:w-48 h-48 rounded-xl overflow-hidden border border-stone-100 shrink-0 shadow-sm relative group">
+                                                <img src={uploadedImage} alt="Uploaded Inspiration" className="w-full h-full object-cover" />
+                                                <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors" />
                                             </div>
-                                            <div>
-                                                <h3 className="font-medium text-rose-900">AI Suggestions Applied</h3>
-                                                <p className="text-sm text-rose-700">Review and customize your bouquet below</p>
+                                        )}
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <span className="text-2xl">✨</span>
+                                                <h3 className="text-xl font-serif font-medium text-rose-900">AI Suggestions Applied</h3>
                                             </div>
+                                            <p className="text-stone-600 mb-4 leading-relaxed">
+                                                We've analyzed your reference image and selected the best matches for fresh flowers, color palette, and style.
+                                                Feel free to customize any details below to perfect your arrangement!
+                                            </p>
+                                            <button
+                                                onClick={() => setHasAiSuggestions(false)}
+                                                className="px-4 py-2 bg-stone-100 text-stone-600 rounded-lg hover:bg-stone-200 text-sm font-medium transition-colors"
+                                            >
+                                                Start Over with New Photo
+                                            </button>
                                         </div>
-                                        <button
-                                            onClick={() => setHasAiSuggestions(false)}
-                                            className="text-sm text-stone-500 hover:text-stone-800 underline pl-4"
-                                        >
-                                            Start Over
-                                        </button>
                                     </div>
                                 )}
 
+                                <BouquetTypePicker
+                                    value={design.bouquetType}
+                                    onChange={(v) => setDesign(d => ({ ...d, bouquetType: v }))}
+                                />
+
                                 <FlowerPicker
                                     value={design.flowers}
-                                    onChange={(v) => setDesign(d => ({ ...d, flowers: v }))}
+                                    quantity={design.quantity}
+                                    onChangeFlowers={(v) => setDesign(d => ({ ...d, flowers: v }))}
+                                    onChangeQuantity={(v) => setDesign(d => ({ ...d, quantity: v }))}
                                 />
+
                                 <ColorPicker
                                     value={design.colors}
                                     onChange={(v) => setDesign(d => ({ ...d, colors: v }))}
                                 />
+
                                 <WrapPicker
-                                    value={design.wrap}
-                                    onChange={(v) => setDesign(d => ({ ...d, wrap: v }))}
+                                    wrap={design.wrap}
+                                    ribbonType={design.ribbonType}
+                                    ribbonColor={design.ribbonColor}
+                                    onChangeWrap={(v) => setDesign(d => ({ ...d, wrap: v }))}
+                                    onChangeRibbonType={(v) => setDesign(d => ({ ...d, ribbonType: v }))}
+                                    onChangeRibbonColor={(v) => setDesign(d => ({ ...d, ribbonColor: v }))}
+                                />
+
+                                <AddonsPicker
+                                    value={design.addons}
+                                    onChange={(v) => setDesign(d => ({ ...d, addons: v }))}
                                 />
                             </>
                         )}

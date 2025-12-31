@@ -9,7 +9,7 @@ interface Suggestion {
 }
 
 interface ImageUploaderProps {
-    onSuggestions: (suggestion: Suggestion) => void;
+    onSuggestions: (suggestion: any, imagePreview: string) => void;
 }
 
 export default function ImageUploader({ onSuggestions }: ImageUploaderProps) {
@@ -54,7 +54,7 @@ export default function ImageUploader({ onSuggestions }: ImageUploaderProps) {
                     }
 
                     if (data.suggestions) {
-                        onSuggestions(data.suggestions);
+                        onSuggestions(data.suggestions, base64String);
                     }
                 } catch (apiErr: any) {
                     setError(apiErr.message || "Something went wrong.");
