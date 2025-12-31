@@ -27,9 +27,9 @@ export default function FlowerPicker({ value = [], quantity, onChangeFlowers, on
 
     const toggleFlower = (flower: string) => {
         if (value.includes(flower)) {
-            onChangeFlowers([]);
+            onChangeFlowers(value.filter(f => f !== flower));
         } else {
-            onChangeFlowers([flower]);
+            onChangeFlowers([...value, flower]);
         }
     };
 
@@ -122,7 +122,7 @@ export default function FlowerPicker({ value = [], quantity, onChangeFlowers, on
             </div>
 
             <p className="text-xs text-stone-400 mt-4 text-center">
-                Select your preferred flower. Live preview updates. 🔄
+                Mix and match flowers from any category! 🌸
             </p>
         </div>
     );
