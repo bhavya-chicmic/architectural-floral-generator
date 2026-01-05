@@ -38,8 +38,12 @@ function DesignContent() {
     const [customFlowerImages, setCustomFlowerImages] = useState<string[]>([]);
 
     useEffect(() => {
-        if (searchParams.get("mode") === "ai") {
+        const modeParam = searchParams.get("mode");
+        if (modeParam === "ai") {
             setMode("ai");
+            setHasAiSuggestions(false);
+        } else if (modeParam === "custom") {
+            setMode("custom");
             setHasAiSuggestions(false);
         }
     }, [searchParams]);

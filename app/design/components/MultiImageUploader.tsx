@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 interface MultiImageUploaderProps {
     onImagesUploaded: (basketImage: string, flowerImages: string[]) => void;
@@ -13,6 +13,13 @@ export default function MultiImageUploader({ onImagesUploaded }: MultiImageUploa
 
     const basketInputRef = useRef<HTMLInputElement>(null);
     const flowersInputRef = useRef<HTMLInputElement>(null);
+
+    // Notify parent component when images change
+    useEffect(() => {
+        if (basketImage) {
+            onImagesUploaded(basketImage, flowerImages);
+        }
+    }, [basketImage, flowerImages]);
 
     const handleBasketUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -29,8 +36,6 @@ export default function MultiImageUploader({ onImagesUploaded }: MultiImageUploa
         reader.onloadend = () => {
             const newBasketImage = reader.result as string;
             setBasketImage(newBasketImage);
-            // Notify parent component with updated images
-            onImagesUploaded(newBasketImage, flowerImages);
         };
         reader.readAsDataURL(file);
     };
@@ -54,14 +59,7 @@ export default function MultiImageUploader({ onImagesUploaded }: MultiImageUploa
                 filesProcessed++;
 
                 if (filesProcessed === files.length) {
-                    setFlowerImages(prev => {
-                        const updatedFlowers = [...prev, ...newFlowerImages];
-                        // Notify parent component with updated images
-                        if (basketImage) {
-                            onImagesUploaded(basketImage, updatedFlowers);
-                        }
-                        return updatedFlowers;
-                    });
+                    setFlowerImages(prev => [...prev, ...newFlowerImages]);
                     setError(null);
                 }
             };
@@ -70,14 +68,7 @@ export default function MultiImageUploader({ onImagesUploaded }: MultiImageUploa
     };
 
     const removeFlowerImage = (index: number) => {
-        setFlowerImages(prev => {
-            const updatedFlowers = prev.filter((_, i) => i !== index);
-            // Notify parent component with updated images
-            if (basketImage) {
-                onImagesUploaded(basketImage, updatedFlowers);
-            }
-            return updatedFlowers;
-        });
+        setFlowerImages(prev => prev.filter((_, i) => i !== index));
     };
 
     return (

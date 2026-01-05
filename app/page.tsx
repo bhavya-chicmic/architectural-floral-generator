@@ -26,11 +26,14 @@ export default function Home() {
             <p className="mt-6 text-lg leading-8 text-stone-600">
               Create stunning, personalized bouquets in seconds. Whether you're a florist or a dreamer, our tools assist you in crafting the perfect arrangement with AI-powered suggestions or full creative control.
             </p>
-            <div className="mt-10 flex items-center gap-x-6">
-              <Link href="/design" className="rounded-full bg-stone-900 px-8 py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-stone-700 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900 transition-all">
+            <div className="mt-10 flex flex-col md:flex-row items-stretch md:items-center gap-4 md:gap-5">
+              <Link href="/design" className="rounded-full bg-stone-900 px-7 py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-stone-700 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900 transition-all text-center whitespace-nowrap">
                 Start Manual Design
               </Link>
-              <Link href="/design?mode=ai" className="rounded-full bg-white px-8 py-3.5 text-sm font-semibold text-stone-900 shadow-sm ring-1 ring-inset ring-stone-200 hover:bg-rose-50 hover:ring-rose-200 transition-all flex items-center gap-2 group">
+              <Link href="/design?mode=custom" className="rounded-full bg-gradient-to-r from-rose-500 to-pink-500 px-7 py-3.5 text-sm font-semibold text-white shadow-sm hover:from-rose-600 hover:to-pink-600 hover:shadow-lg transition-all flex items-center justify-center gap-2 group whitespace-nowrap">
+                <span className="group-hover:scale-110 transition-transform">🎨</span> Custom Bouquet
+              </Link>
+              <Link href="/design?mode=ai" className="rounded-full bg-white px-7 py-3.5 text-sm font-semibold text-stone-900 shadow-sm ring-1 ring-inset ring-stone-200 hover:bg-rose-50 hover:ring-rose-200 transition-all flex items-center justify-center gap-2 group whitespace-nowrap">
                 <span className="group-hover:scale-110 transition-transform">✨</span> AI Assistant
               </Link>
             </div>

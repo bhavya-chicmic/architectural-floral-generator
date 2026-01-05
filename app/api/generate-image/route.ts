@@ -116,32 +116,50 @@ export async function POST(req: NextRequest) {
 
       // Add text prompt
       parts.push({
-        text: `You are a professional floral designer and digital artist.
+        text: `You are performing a STRICT VISUAL SUGGESTION AND PRESERVATION task.
 
-        TASK:
-        Create a photorealistic bouquet by compositing the provided flower images into the provided basket.
+TASK:
+Show a visual suggestion of how the uploaded plants or flowers could be placed together inside the uploaded basket.
 
-        IMAGES PROVIDED:
-        - First image: The basket/container
-        - Remaining images: Individual flowers to arrange
+IMPORTANT:
+This is NOT a creative redesign.
+This is NOT an artistic reinterpretation.
+This is a placement suggestion using ONLY the user-uploaded assets.
 
-        REQUIREMENTS:
-        - Arrange the flowers naturally and artistically in the basket
-        - Maintain realistic lighting and shadows
-        - Ensure flowers blend seamlessly with the basket
-        - Create depth and dimension in the arrangement
-        - Professional florist-quality composition
-        - Studio lighting with natural shadows
-        - Clean, photorealistic result
+IMAGE RULES:
+- First image: Basket / container (must remain unchanged)
+- Remaining images: Plant or flower references
 
-        STYLE:
-        - Photorealistic, not illustration
-        - Premium florist quality
-        - Natural color palette
-        - Elegant arrangement
+ABSOLUTE CONSTRAINTS:
+- Preserve the exact basket shape, proportions, edges, and geometry
+- Do NOT redesign, stylize, or reinterpret the basket
+- Do NOT introduce any new plant species
+- Do NOT add any flowers, foliage, or materials that are NOT visible in the uploaded images
+- Do NOT change the identity, leaf shape, or flower type of the uploaded plants
 
-        OUTPUT:
-        Generate a single, cohesive image showing the beautiful bouquet arrangement in the basket.`,
+PLANT USAGE RULES (VERY IMPORTANT):
+- You MAY reuse and repeat the SAME uploaded plant or flower multiple times
+- Repetition is allowed ONLY by duplicating the exact uploaded plant appearance
+- All repeated plants must look identical to the uploaded reference
+- Do NOT invent variations, colors, or new plant forms
+
+COMPOSITION RULES:
+- Use enough repeated plants to visually suggest a balanced arrangement
+- Plants may overlap naturally
+- The goal is to suggest where and how the plants could look good together
+- Empty space is acceptable if needed to preserve accuracy
+
+VISUAL STYLE:
+- Conceptual arrangement preview
+- Not photorealistic product photography
+- Not a catalog or lifestyle render
+- Avoid beautification or idealization
+
+PRIORITY:
+Object fidelity > basket accuracy > visual clarity > beauty
+
+OUTPUT:
+Generate a single image that visually suggests how multiple instances of the uploaded plants could be arranged inside the uploaded basket, using only the provided images.`, 
       });
 
       const result = await model.generateContent({
