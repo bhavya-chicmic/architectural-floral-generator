@@ -9,6 +9,7 @@ import WrapPicker from "./components/WrapPicker";
 import AddonsPicker from "./components/AddonsPicker";
 import Preview from "./components/Preview";
 import ImageUploader from "./components/ImageUploader";
+import MultiImageUploader from "./components/MultiImageUploader";
 
 export interface DesignState {
     bouquetType: string;
@@ -30,9 +31,11 @@ export interface DesignState {
 
 function DesignContent() {
     const searchParams = useSearchParams();
-    const [mode, setMode] = useState<"manual" | "ai">("manual");
+    const [mode, setMode] = useState<"manual" | "ai" | "custom">("manual");
     const [hasAiSuggestions, setHasAiSuggestions] = useState(false);
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+    const [customBasketImage, setCustomBasketImage] = useState<string | null>(null);
+    const [customFlowerImages, setCustomFlowerImages] = useState<string[]>([]);
 
     useEffect(() => {
         if (searchParams.get("mode") === "ai") {
@@ -75,9 +78,19 @@ function DesignContent() {
         setHasAiSuggestions(true);
     };
 
-    const handleModeSwitch = (newMode: "manual" | "ai") => {
+    const handleCustomImagesUploaded = (basketImage: string, flowerImages: string[]) => {
+        setCustomBasketImage(basketImage);
+        setCustomFlowerImages(flowerImages);
+    };
+
+    const handleModeSwitch = (newMode: "manual" | "ai" | "custom") => {
         setMode(newMode);
         if (newMode === "manual") {
+            setHasAiSuggestions(false);
+            setUploadedImage(null);
+            setCustomBasketImage(null);
+            setCustomFlowerImages([]);
+        } else if (newMode === "custom") {
             setHasAiSuggestions(false);
             setUploadedImage(null);
         }
@@ -94,7 +107,7 @@ function DesignContent() {
                         Craft your perfect arrangement with our AI florist
                     </p>
 
-                    <div className="flex justify-center gap-4 text-sm">
+                    <div className="flex justify-center gap-4 text-sm flex-wrap">
                         <button
                             onClick={() => handleModeSwitch("manual")}
                             className={`px-4 py-2 rounded-full transition-all ${mode === "manual" ? "bg-stone-800 text-white" : "bg-white text-stone-600 border border-stone-200"}`}
@@ -107,12 +120,20 @@ function DesignContent() {
                         >
                             ✨ AI Assistant
                         </button>
+                        <button
+                            onClick={() => handleModeSwitch("custom")}
+                            className={`px-4 py-2 rounded-full transition-all ${mode === "custom" ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-purple-200 shadow-md" : "bg-white text-stone-600 border border-stone-200"}`}
+                        >
+                            🎨 Custom Bouquet
+                        </button>
                     </div>
                 </header>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                     <div className="lg:col-span-7 space-y-6">
-                        {mode === "ai" && !hasAiSuggestions ? (
+                        {mode === "custom" ? (
+                            <MultiImageUploader onImagesUploaded={handleCustomImagesUploaded} />
+                        ) : mode === "ai" && !hasAiSuggestions ? (
                             <ImageUploader onSuggestions={handleSuggestions} />
                         ) : (
                             <>
@@ -178,7 +199,12 @@ function DesignContent() {
                     </div>
 
                     <div className="lg:col-span-5">
-                        <Preview design={design} />
+                        <Preview
+                            design={design}
+                            mode={mode}
+                            customBasketImage={customBasketImage}
+                            customFlowerImages={customFlowerImages}
+                        />
                     </div>
                 </div>
             </div>

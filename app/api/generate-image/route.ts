@@ -79,7 +79,106 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     
     // ---------------------------------------------------------
-    // OPTION A: Handle Image Upload & AI Suggestions
+    // OPTION A: Custom Bouquet with Basket + Flowers
+    // ---------------------------------------------------------
+    if (body.basketImage && body.flowerImages) {
+      const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-image" });
+
+      // Prepare images for the prompt
+      const parts: any[] = [];
+      
+      // Add basket image
+      let basketData = body.basketImage;
+      if (basketData.includes("base64,")) {
+        basketData = basketData.split("base64,")[1];
+      }
+      parts.push({
+        inlineData: {
+          data: basketData,
+          mimeType: "image/jpeg",
+        },
+      });
+
+      // Add flower images
+      body.flowerImages.forEach((img: string) => {
+        let flowerData = img;
+        if (flowerData.includes("base64,")) {
+          flowerData = flowerData.split("base64,")[1];
+        }
+        parts.push({
+          inlineData: {
+            data: flowerData,
+            mimeType: "image/jpeg",
+          },
+        });
+      });
+
+      // Add text prompt
+      parts.push({
+        text: `You are a professional floral designer and digital artist.
+
+        TASK:
+        Create a photorealistic bouquet by compositing the provided flower images into the provided basket.
+
+        IMAGES PROVIDED:
+        - First image: The basket/container
+        - Remaining images: Individual flowers to arrange
+
+        REQUIREMENTS:
+        - Arrange the flowers naturally and artistically in the basket
+        - Maintain realistic lighting and shadows
+        - Ensure flowers blend seamlessly with the basket
+        - Create depth and dimension in the arrangement
+        - Professional florist-quality composition
+        - Studio lighting with natural shadows
+        - Clean, photorealistic result
+
+        STYLE:
+        - Photorealistic, not illustration
+        - Premium florist quality
+        - Natural color palette
+        - Elegant arrangement
+
+        OUTPUT:
+        Generate a single, cohesive image showing the beautiful bouquet arrangement in the basket.`,
+      });
+
+      const result = await model.generateContent({
+        contents: [
+          {
+            role: "user",
+            parts: parts,
+          },
+        ],
+        generationConfig: {
+          responseModalities: ["IMAGE"],
+        } as any,
+      });
+
+      let imageBase64 = "";
+      const candidates = result.response.candidates;
+      if (candidates && candidates[0].content && candidates[0].content.parts) {
+        for (const part of candidates[0].content.parts) {
+          if (part.inlineData) {
+            imageBase64 = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+            break;
+          }
+        }
+      }
+
+      if (!imageBase64) {
+        throw new Error("No image returned from Gemini");
+      }
+
+      return NextResponse.json({
+        success: true,
+        image: imageBase64,
+      });
+    }
+    
+    // ---------------------------------------------------------
+    // OPTION B: Handle Image Upload & AI Suggestions
     // ---------------------------------------------------------
     if (body.image) {
       // Initialize Gemini for Vision/Text

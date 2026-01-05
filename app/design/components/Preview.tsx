@@ -19,19 +19,34 @@ interface PreviewProps {
             floristNote: string;
         };
     };
+    mode: "manual" | "ai" | "custom";
+    customBasketImage?: string | null;
+    customFlowerImages?: string[];
 }
 
-export default function Preview({ design }: PreviewProps) {
+export default function Preview({ design, mode, customBasketImage, customFlowerImages }: PreviewProps) {
     const [loading, setLoading] = useState(false);
     const [image, setImage] = useState<string | null>(null);
 
     const generate = async () => {
-        if (design.flowers.length === 0) return;
+        // For custom mode, require basket and flower images
+        if (mode === "custom") {
+            if (!customBasketImage || !customFlowerImages || customFlowerImages.length === 0) {
+                return;
+            }
+        } else {
+            // For manual/AI mode, require flower selection
+            if (design.flowers.length === 0) return;
+        }
+
         setLoading(true);
         try {
-            const res = await fetch("/api/generate-image", {
-                method: "POST",
-                body: JSON.stringify({
+            const requestBody = mode === "custom"
+                ? {
+                    basketImage: customBasketImage,
+                    flowerImages: customFlowerImages,
+                }
+                : {
                     bouquetType: design.bouquetType,
                     flowers: design.flowers,
                     quantity: design.quantity,
@@ -39,7 +54,11 @@ export default function Preview({ design }: PreviewProps) {
                     wrap: design.wrap || "No wrapping",
                     ribbonType: design.ribbonType,
                     ribbonColor: design.ribbonColor,
-                }),
+                };
+
+            const res = await fetch("/api/generate-image", {
+                method: "POST",
+                body: JSON.stringify(requestBody),
             });
 
             const data = await res.json();
@@ -53,7 +72,9 @@ export default function Preview({ design }: PreviewProps) {
         }
     };
 
-    const hasSelections = design.flowers.length > 0;
+    const hasSelections = mode === "custom"
+        ? (customBasketImage !== null && customFlowerImages && customFlowerImages.length > 0)
+        : design.flowers.length > 0;
 
     return (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex flex-col h-full sticky top-8">
@@ -63,7 +84,7 @@ export default function Preview({ design }: PreviewProps) {
 
             <div className="flex-1 min-h-[300px] bg-stone-50 rounded-xl border border-dashed border-stone-200 flex flex-col items-center justify-center p-4 overflow-hidden relative">
                 {image ? (
-                    <img src={image} alt="Bouquet Preview" className="w-full h-full object-cover rounded-lg shadow-md animate-fade-in" />
+                    <img src={image || ""} alt="Bouquet Preview" className="w-full h-full object-cover rounded-lg shadow-md animate-fade-in" />
                 ) : (
                     <div className="text-center text-stone-400">
                         <div className="text-4xl mb-2 opacity-20">💐</div>
@@ -82,7 +103,7 @@ export default function Preview({ design }: PreviewProps) {
             </div>
 
             <div className="mt-6 space-y-4">
-                {hasSelections ? (
+                {mode !== "custom" && hasSelections ? (
                     <div className="text-sm text-stone-600 bg-stone-50 p-3 rounded-lg border border-stone-100 space-y-1">
                         <p><strong className="text-stone-800">Style:</strong> {design.bouquetType} ({design.quantity})</p>
                         <p><strong className="text-stone-800">Flowers:</strong> {design.flowers.join(", ")}</p>
@@ -95,11 +116,11 @@ export default function Preview({ design }: PreviewProps) {
                             ].filter(Boolean).join(", ")}</p>
                         )}
                     </div>
-                ) : (
+                ) : mode !== "custom" ? (
                     <div className="text-sm text-stone-400 italic text-center p-2">
                         Start adding items to build your bouquet
                     </div>
-                )}
+                ) : null}
 
                 <button
                     onClick={generate}
